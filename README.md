@@ -71,4 +71,4 @@ FinalExam/
     Access at: `http://localhost:5000`
 
 ---
-**Prepared by [Your Name] | PDC Final Project 2026**
+**Prepared by Sufyan Ahmad | PDC Final Project 2026**
