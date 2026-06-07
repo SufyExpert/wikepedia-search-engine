@@ -1,0 +1,25 @@
+# =============================================================
+# requirements.txt
+# -------------------------------------------------------------
+# Python packages needed for this project.
+#
+# Install all at once with:
+#   pip install -r requirements.txt
+#
+# PACKAGE DESCRIPTIONS:
+# =============================================================
+
+# PySpark - Apache Spark for Python
+# Used for parallel processing of Wikipedia XML articles
+pyspark==3.5.1
+
+# Elasticsearch Python client
+# Used to connect to our Elasticsearch Docker container
+elasticsearch==8.12.0
+
+# Requests - HTTP library for Python
+# Used to communicate with Apache Solr's REST API
+requests==2.31.0
+
+# lxml - Removed because it causes errors on Windows. 
+# The script will use the built-in ElementTree instead.

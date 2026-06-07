@@ -1,0 +1,6 @@
+# This file keeps the empty data/ folder tracked by Git.
+# The actual data files (XML dump, articles.json) are excluded
+# via .gitignore because they are too large to commit.
+#
+# To populate this folder, run:
+#   python scripts/download_dataset.py

@@ -1,0 +1,39 @@
+# =============================================================
+# .gitignore — Files to exclude from Git version control
+# =============================================================
+
+# Wikipedia dataset (too large to commit — ~200 MB)
+data/*.bz2
+data/*.xml
+data/*.json
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment folders
+venv/
+env/
+.venv/
+
+# PySpark / Java temp files
+*.log
+*.tmp
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Docker volumes (managed by Docker, not Git)
+.docker/
+
+# IDE settings
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db

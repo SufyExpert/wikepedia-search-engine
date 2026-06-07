@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WikiSearch — Distributed Search Engine</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js">
+    function openArticle(e, title) {
+      e.preventDefault();
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalBody').textContent = 'Loading...';
+      document.getElementById('modalWikiLink').href = 'https://en.wikipedia.org/wiki/' + encodeURIComponent(title.replace(/ /g, '_'));
+      new bootstrap.Modal(document.getElementById('articleModal')).show();
+      fetch('/article?title=' + encodeURIComponent(title))
+        .then(r => r.json()).then(d => {
+          document.getElementById('modalBody').textContent = d.content || 'No content available.';
+        }).catch(() => { document.getElementById('modalBody').textContent = 'Could not load content.'; });
+    }
+  </script>
+  <style>
+    * {
+      font-family: 'Inter', sans-serif
+    }
+
+    body {
+      background: #f4f6fb;
+      color: #1a202c;
+      min-height: 100vh
+    }
+
+    /* NAVBAR */
+    .navbar {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px 24px
+    }
+
+    .wiki-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none
+    }
+
+    .wiki-logo .w-circle {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #000;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: 900;
+      font-family: serif
+    }
+
+    .wiki-logo .brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1a202c
+    }
+
+    .wiki-logo .brand span {
+      color: #3182ce
+    }
+
+    /* HERO */
+    .hero {
+      background: linear-gradient(135deg, #1a365d 0%, #2a4a8a 50%, #1e3a7a 100%);
+      padding: 70px 0 50px;
+      text-align: center;
+      color: #fff
+    }
+
+    .hero-badge {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #bee3f8;
+      padding: 5px 16px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      display: inline-block;
+      margin-bottom: 20px
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 10px
+    }
+
+    .hero p {
+      color: #bee3f8;
+      font-size: 1rem;
+      max-width: 560px;
+      margin: 0 auto 32px
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 16px 24px;
+      text-align: center
+    }
+
+    .stat-num {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #fff
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: #bee3f8;
+      text-transform: uppercase;
+      letter-spacing: 1px
+    }
+
+    /* SEARCH */
+    .search-wrap {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+      padding: 8px 8px 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 720px;
+      margin: 0 auto;
+      border: 2px solid transparent;
+      transition: border-color .2s
+    }
+
+    .search-wrap:focus-within {
+      border-color: #3182ce
+    }
+
+    .search-wrap input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 1.05rem;
+      color: #1a202c;
+      background: transparent
+    }
+
+    .search-wrap input::placeholder {
+      color: #a0aec0
+    }
+
+    .search-btn {
+      background: linear-gradient(135deg, #2b6cb0, #3182ce);
+      color: #fff;
+      border: none;
+      padding: 11px 26px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap
+    }
+
+    .search-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(49, 130, 206, 0.4)
+    }
+
+    .examples {
+      text-align: center;
+      margin-top: 14px;
+      font-size: 0.83rem;
+      color: #718096
+    }
+
+    .examples a {
+      color: #3182ce;
+      cursor: pointer;
+      margin: 0 6px;
+      text-decoration: none
+    }
+
+    .examples a:hover {
+      text-decoration: underline
+    }
+
+    /* RESULTS AREA */
+    .results-area {
+      max-width: 1080px;
+      margin: 32px auto;
+      padding: 0 20px 60px;
+      display: none
+    }
+
+    .back-btn {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      color: #4a5568;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 20px;
+      transition: all .2s
+    }
+
+    .back-btn:hover {
+      background: #edf2f7;
+      border-color: #cbd5e0
+    }
+
+    .qheader {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 22px;
+      margin-bottom: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06)
+    }
+
+    .qheader .qt {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1a202c
+    }
+
+    .qheader .qt span {
+      color: #3182ce
+    }
+
+    /* TABS */
+    .nav-tabs {
+      border-bottom: 2px solid #e2e8f0
+    }
+
+    .nav-tabs .nav-link {
+      color: #718096;
+      border: none;
+      padding: 11px 20px;
+      font-weight: 500;
+      background: transparent;
+      border-bottom: 3px solid transparent;
+      transition: all .2s
+    }
+
+    .nav-tabs .nav-link:hover {
+      color: #2d3748;
+      border-bottom-color: #cbd5e0
+    }
+
+    .nav-tabs .nav-link.active {
+      color: #2b6cb0;
+      border-bottom-color: #3182ce;
+      background: transparent;
+      font-weight: 600
+    }
+
+    /* STATS ROW */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 18px
+    }
+
+    .scard {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05)
+    }
+
+    .scard-val {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #2b6cb0
+    }
+
+    .scard-key {
+      font-size: 0.68rem;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: .8px
+    }
+
+    /* RESULT CARDS */
+    .rcard {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin-bottom: 12px;
+      transition: all .2s;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05)
+    }
+
+    .rcard:hover {
+      border-color: #90cdf4;
+      box-shadow: 0 4px 16px rgba(49, 130, 206, 0.12);
+      transform: translateY(-1px)
+    }
+
+    .rcard-num {
+      color: #a0aec0;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-bottom: 4px
+    }
+
+    .rcard-title a {
+      color: #1a202c;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none
+    }
+
+    .rcard-title a:hover {
+      color: #2b6cb0;
+      text-decoration: underline
+    }
+
+    .rcard-snip {
+      color: #718096;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      margin-top: 6px
+    }
+
+    .rcard-snip em {
+      color: #2b6cb0;
+      font-style: normal;
+      font-weight: 600;
+      background: #ebf8ff;
+      padding: 0 3px;
+      border-radius: 3px
+    }
+
+    .score-tag {
+      float: right;
+      background: #ebf8ff;
+      color: #2b6cb0;
+      border: 1px solid #bee3f8;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.73rem;
+      font-weight: 700
+    }
+
+    /* COMMON TAB */
+    .common-hero {
+      background: linear-gradient(135deg, #e6fffa, #f0fff4);
+      border: 1px solid #9ae6b4;
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px
+    }
+
+    .common-icon {
+      font-size: 2.5rem
+    }
+
+    .common-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #276749
+    }
+
+    .common-sub {
+      font-size: 0.85rem;
+      color: #48bb78
+    }
+
+    /* COMPARISON */
+    .cmp-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 18px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05)
+    }
+
+    .cmp-card h6 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: #718096;
+      margin-bottom: 16px
+    }
+
+    .metric-row {
+      margin-bottom: 14px
+    }
+
+    .metric-label {
+      font-size: 0.82rem;
+      color: #4a5568;
+      margin-bottom: 5px;
+      display: flex;
+      justify-content: space-between
+    }
+
+    .bar-wrap {
+      background: #f7fafc;
+      border-radius: 6px;
+      height: 10px;
+      overflow: hidden;
+      margin-bottom: 3px
+    }
+
+    .bar-es {
+      height: 100%;
+      background: linear-gradient(90deg, #3182ce, #63b3ed);
+      border-radius: 6px;
+      transition: width 1s ease
+    }
+
+    .bar-solr {
+      height: 100%;
+      background: linear-gradient(90deg, #dd6b20, #ed8936);
+      border-radius: 6px;
+      transition: width 1s ease
+    }
+
+    .win-badge {
+      font-size: 0.68rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #f0fff4;
+      color: #276749;
+      border: 1px solid #9ae6b4
+    }
+
+    .arch-table td,
+    th {
+      font-size: 0.83rem;
+      padding: 10px 14px
+    }
+
+    /* ENGINE BADGES */
+    .es-tag {
+      background: #ebf8ff;
+      color: #2b6cb0;
+      border: 1px solid #bee3f8;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 700
+    }
+
+    .solr-tag {
+      background: #fff5eb;
+      color: #c05621;
+      border: 1px solid #fbd38d;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 700
+    }
+
+    /* PRINT */
+    @media print {
+
+      .navbar,
+      .search-wrap,
+      .examples,
+      .back-btn,
+      .hero,
+      .nav-tabs,
+      .search-section {
+        display: none !important
+      }
+
+      body {
+        background: #fff !important;
+        color: #000 !important
+      }
+
+      .results-area {
+        display: block !important;
+        max-width: 100%;
+        margin: 0;
+        padding: 0
+      }
+
+      .rcard {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ccc;
+        margin-bottom: 8px
+      }
+
+      .cmp-card {
+        break-inside: avoid;
+        box-shadow: none
+      }
+
+      .tab-pane {
+        display: block !important;
+        opacity: 1 !important
+      }
+
+      .tab-pane::before {
+        content: attr(data-title);
+        font-size: 1.2rem;
+        font-weight: 700;
+        display: block;
+        padding: 12px 0;
+        border-bottom: 2px solid #000;
+        margin-bottom: 12px
+      }
+    }
+
+    /* LOADING */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 60px
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #3182ce;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto 14px
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .modal-section-heading {
+      color: #2b6cb0;
+      font-weight: 700;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #ebf8ff;
+      text-transform: uppercase;
+      font-size: 0.85rem;
+      letter-spacing: 0.5px;
+    }
+
+    .modal-body p {
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- NAVBAR -->
+  <nav class="navbar d-flex justify-content-between align-items-center">
+    <a class="wiki-logo" href="/" onclick="goHome(event)">
+      <div class="w-circle">W</div>
+      <div class="brand">Wiki<span>Search</span></div>
+    </a>
+    <div class="d-flex align-items-center gap-3">
+      <span class="es-tag">⚡ Elasticsearch</span>
+      <span class="solr-tag">🔆 Apache Solr</span>
+      <button class="btn btn-sm btn-outline-secondary" onclick="window.print()">🖨 Print</button>
+    </div>
+  </nav>
+
+  <!-- HERO + SEARCH -->
+  <div id="homePage">
+    <div class="hero">
+      <div class="hero-badge">PDC Final Exam 2026</div>
+      <div style="display:flex;justify-content:center;margin-bottom:16px">
+        <div
+          style="width:72px;height:72px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:2.8rem;font-weight:900;font-family:serif;color:#000;box-shadow:0 4px 20px rgba(0,0,0,0.3)">
+          W</div>
+      </div>
+      <h1>WikiSearch</h1>
+      <p>Distributed full-text search over 572,766 Wikipedia articles using Apache Spark, Elasticsearch &amp; Apache
+        Solr</p>
+      <div class="container">
+        <div class="row justify-content-center g-3 mt-2">
+          <div class="col-auto">
+            <div class="stat-box">
+              <div class="stat-num">572K+</div>
+              <div class="stat-label">Articles</div>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="stat-box">
+              <div class="stat-num">2</div>
+              <div class="stat-label">Search Engines</div>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="stat-box">
+              <div class="stat-num">&lt;100ms</div>
+              <div class="stat-label">Query Speed</div>
+            </div>
+          </div>
+          <div class="col-auto">
+            <div class="stat-box">
+              <div class="stat-num">BM25</div>
+              <div class="stat-label">Algorithm</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="container py-5">
+      <div class="search-wrap">
+        <svg width="20" height="20" fill="none" stroke="#a0aec0" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+        <input id="searchInput" type="text" placeholder="Search Wikipedia articles..." autocomplete="off">
+        <button class="search-btn" onclick="doSearch()">Search Both Engines</button>
+      </div>
+      <div class="examples">Try: <a onclick="qs('Pakistan')">Pakistan</a><a
+          onclick="qs('Artificial Intelligence')">Artificial Intelligence</a><a onclick="qs('Cricket')">Cricket</a><a
+          onclick="qs('Computer Science')">Computer Science</a></div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p class="text-muted">Querying Elasticsearch &amp; Solr simultaneously...</p>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results-area" id="resultsArea">
+    <button class="back-btn" onclick="goHome()">← Back to Search</button>
+    <div class="qheader">
+      <div class="qt">Showing results for: <span id="queryDisplay"></span></div>
+      <div class="d-flex gap-2"><span class="es-tag">⚡ Elasticsearch</span><span class="solr-tag">🔆 Apache Solr</span>
+      </div>
+    </div>
+    <ul class="nav nav-tabs mb-4">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#esTab">⚡ Elasticsearch
+          <span class="badge bg-primary ms-1" id="esCnt">0</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#solrTab">🔆 Apache Solr <span
+            class="badge text-bg-warning ms-1" id="solrCnt">0</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#commonTab">🔗 Common Results
+          <span class="badge bg-success ms-1" id="commonCnt">0</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#cmpTab">📊 Comparison</button>
+      </li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="esTab" data-title="Elasticsearch Results">
+        <div class="stats-row" id="esStats"></div>
+        <div id="esResults"></div>
+      </div>
+      <div class="tab-pane fade" id="solrTab" data-title="Apache Solr Results">
+        <div class="stats-row" id="solrStats"></div>
+        <div id="solrResults"></div>
+      </div>
+      <div class="tab-pane fade" id="commonTab" data-title="Common Results (Both Engines)">
+        <div class="common-hero">
+          <div class="common-icon">🔗</div>
+          <div>
+            <div class="common-title" id="commonTitle">Articles found in BOTH engines</div>
+            <div class="common-sub">These results are validated by Elasticsearch AND Apache Solr</div>
+          </div>
+        </div>
+        <div id="commonResults"></div>
+      </div>
+      <div class="tab-pane fade" id="cmpTab" data-title="Comparison Dashboard">
+        <div class="row g-3 mb-4" id="cmpMetrics"></div>
+        <div class="cmp-card">
+          <h6>Performance Bars</h6>
+          <div id="perfBars"></div>
+        </div>
+        <div class="cmp-card">
+          <h6>Results Distribution</h6>
+          <div class="row text-center g-3">
+            <div class="col-4"><canvas id="chartTotal" height="180"></canvas>
+              <div style="font-size:.75rem;color:#718096;margin-top:6px">Total Results</div>
+            </div>
+            <div class="col-4"><canvas id="chartTime" height="180"></canvas>
+              <div style="font-size:.75rem;color:#718096;margin-top:6px">Response Time (ms)</div>
+            </div>
+            <div class="col-4"><canvas id="chartScore" height="180"></canvas>
+              <div style="font-size:.75rem;color:#718096;margin-top:6px">Top Score</div>
+            </div>
+          </div>
+        </div>
+        <div class="cmp-card">
+          <h6>Architecture Comparison</h6>
+          <table class="table arch-table">
+            <thead class="table-light">
+              <tr>
+                <th>Feature</th>
+                <th>⚡ Elasticsearch</th>
+                <th>🔆 Apache Solr</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Core Engine</td>
+                <td>Apache Lucene</td>
+                <td>Apache Lucene</td>
+              </tr>
+              <tr>
+                <td>Ranking Algorithm</td>
+                <td>BM25</td>
+                <td>BM25</td>
+              </tr>
+              <tr>
+                <td>Config Format</td>
+                <td>JSON REST API</td>
+                <td>XML Schema</td>
+              </tr>
+              <tr>
+                <td>Admin UI</td>
+                <td>Kibana — Port 5601</td>
+                <td>Solr Admin — Port 8983</td>
+              </tr>
+              <tr>
+                <td>Strength</td>
+                <td>Real-time analytics</td>
+                <td>Enterprise search</td>
+              </tr>
+              <tr>
+                <td>Used By</td>
+                <td>GitHub, Netflix, Uber</td>
+                <td>Apple, Netflix, Adobe</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="text-center py-4 text-muted" style="font-size:0.8rem;border-top:1px solid #e2e8f0;background:#fff">
+    WikiSearch &nbsp;|&nbsp; PDC Final Exam 2026 &nbsp;|&nbsp; Apache Spark · Elasticsearch · Apache Solr · Flask
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let chart = null;
+    function qs(q) { document.getElementById('searchInput').value = q; doSearch(); }
+    function goHome(e) { if (e) e.preventDefault(); document.getElementById('homePage').style.display = 'block'; document.getElementById('resultsArea').style.display = 'none'; document.getElementById('loading').style.display = 'none'; }
+    document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+    function doSearch() {
+      const q = document.getElementById('searchInput').value.trim();
+      if (!q) return;
+      document.getElementById('homePage').style.display = 'none';
+      document.getElementById('resultsArea').style.display = 'none';
+      document.getElementById('loading').style.display = 'block';
+      fetch('/search?q=' + encodeURIComponent(q))
+        .then(r => r.json()).then(d => {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('resultsArea').style.display = 'block';
+          document.getElementById('queryDisplay').textContent = '"' + d.query + '"';
+          renderES(d.elasticsearch);
+          renderSolr(d.solr);
+          renderCommon(d);
+          renderCmp(d);
+        }).catch(err => { document.getElementById('loading').style.display = 'none'; document.getElementById('homePage').style.display = 'block'; alert('Error: ' + err.message); });
+    }
+
+    function wikiLink(title) {
+      const t = Array.isArray(title) ? title[0] : title;
+      return '/article?title=' + encodeURIComponent(t);
+    }
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function getTitle(r) { return Array.isArray(r.title) ? r.title[0] : r.title; }
+
+    function statsHtml(data, color) {
+      return `<div class="scard"><div class="scard-val" style="color:${color}">${data.total.toLocaleString()}</div><div class="scard-key">Total Results</div></div>
+    <div class="scard"><div class="scard-val" style="color:${color}">${data.time_ms}ms</div><div class="scard-key">Response Time</div></div>
+    <div class="scard"><div class="scard-val" style="color:${color}">${data.top_score}</div><div class="scard-key">Top Score</div></div>
+    <div class="scard"><div class="scard-val" style="color:${color}">BM25</div><div class="scard-key">Algorithm</div></div>`;
+    }
+    function cardsHtml(results) {
+      if (!results.length) return '<div class="text-center text-muted py-5">No results found.</div>';
+      return results.map((r, i) => {
+        const t = getTitle(r);
+        const wUrl = 'https://en.wikipedia.org/wiki/' + encodeURIComponent(t.replace(/ /g, '_'));
+        return `<div class="rcard">
+      <div class="rcard-num">#${i + 1} <span class="score-tag">Score: ${r.score}</span></div>
+      <div class="rcard-title">
+        <a href="#" class="article-link" data-title="${esc(t)}">${esc(t)}</a>
+        <a href="${wUrl}" target="_blank" title="Wikipedia" style="font-size:.75rem;color:#a0aec0;margin-left:6px;text-decoration:none">↗</a>
+      </div>
+      <div class="rcard-snip">${r.snippet}</div>
+    </div>`;
+      }).join('');
+    }
+    function renderES(d) {
+      document.getElementById('esCnt').textContent = d.results.length;
+      document.getElementById('esStats').innerHTML = statsHtml(d, '#2b6cb0');
+      document.getElementById('esResults').innerHTML = cardsHtml(d.results);
+    }
+    function renderSolr(d) {
+      document.getElementById('solrCnt').textContent = d.results.length;
+      document.getElementById('solrStats').innerHTML = statsHtml(d, '#c05621');
+      document.getElementById('solrResults').innerHTML = cardsHtml(d.results);
+    }
+    function renderCommon(d) {
+      document.getElementById('commonCnt').textContent = d.common_count;
+      document.getElementById('commonTitle').textContent = d.common_count + '% article(s) found in BOTH Elasticsearch AND Solr';
+      if (!d.common_titles.length) {
+        document.getElementById('commonResults').innerHTML = '<div class="text-center text-muted py-5">No common titles in top results.<br><small>Both engines searched independently — minor ranking differences are normal!</small></div>';
+        return;
+      }
+      document.getElementById('commonResults').innerHTML = d.common_titles.map((t, i) => `
+    <div class="rcard">
+      <div class="rcard-num">#${i + 1} <span class="badge bg-success ms-1" style="font-size:0.65rem">Both Engines</span></div>
+      <div class="rcard-title"><a href="#" class="article-link" data-title="${esc(t)}">${esc(t)}</a></div>
+      <div class="rcard-snip" style="color:#276749;font-size:0.8rem">✅ Validated by Elasticsearch &amp; Apache Solr</div>
+    </div>`).join('');
+    }
+    function renderCmp(d) {
+      const es = d.elasticsearch, solr = d.solr;
+      const metrics = [
+        { l: 'Total Results', ev: es.total, sv: solr.total, ef: es.total.toLocaleString(), sf: solr.total.toLocaleString(), win: es.total >= solr.total ? 'ES' : 'Solr' },
+        { l: 'Response Time', ev: es.time_ms, sv: solr.time_ms, ef: es.time_ms + 'ms', sf: solr.time_ms + 'ms', win: es.time_ms <= solr.time_ms ? 'ES' : 'Solr' },
+        { l: 'Top Score', ev: es.top_score, sv: solr.top_score, ef: es.top_score, sf: solr.top_score, win: es.top_score >= solr.top_score ? 'ES' : 'Solr' },
+        { l: 'Common Results', ev: d.common_count, sv: d.common_count, ef: d.common_count, sf: d.common_count, win: null }
+      ];
+      document.getElementById('cmpMetrics').innerHTML = metrics.map(m => `
+    <div class="col-md-3 col-6">
+      <div class="cmp-card text-center" style="padding:16px">
+        <div class="scard-key mb-2">${m.l}</div>
+        <div class="d-flex justify-content-center gap-3 mb-2">
+          <div><div style="font-size:1.2rem;font-weight:700;color:#2b6cb0">${m.ef}</div><div style="font-size:0.65rem;color:#a0aec0">ES</div></div>
+          <div style="color:#e2e8f0">|</div>
+          <div><div style="font-size:1.2rem;font-weight:700;color:#c05621">${m.sf}</div><div style="font-size:0.65rem;color:#a0aec0">Solr</div></div>
+        </div>
+        ${m.win ? `<span class="win-badge">🏆 ${m.win} wins</span>` : '<span class="badge bg-secondary" style="font-size:0.65rem">Equal</span>'}
+      </div>
+    </div>`).join('');
+      const maxT = Math.max(es.total, solr.total) || 1, maxTm = Math.max(es.time_ms, solr.time_ms) || 1, maxS = Math.max(es.top_score, solr.top_score) || 1;
+      const bars = [
+        { l: 'Total Results', ew: es.total / maxT * 100, sw: solr.total / maxT * 100, ev: es.total.toLocaleString(), sv: solr.total.toLocaleString() },
+        { l: 'Response Time (ms)', ew: es.time_ms / maxTm * 100, sw: solr.time_ms / maxTm * 100, ev: es.time_ms + 'ms', sv: solr.time_ms + 'ms' },
+        { l: 'Top Relevance Score', ew: es.top_score / maxS * 100, sw: solr.top_score / maxS * 100, ev: es.top_score, sv: solr.top_score }
+      ];
+      document.getElementById('perfBars').innerHTML = bars.map(b => `
+    <div class="metric-row">
+      <div class="metric-label"><span>${b.l}</span><span><span style="color:#2b6cb0;font-weight:600">${b.ev}</span> vs <span style="color:#c05621;font-weight:600">${b.sv}</span></span></div>
+      <div class="bar-wrap"><div class="bar-es" style="width:${b.ew}%"></div></div>
+      <div class="bar-wrap"><div class="bar-solr" style="width:${b.sw}%"></div></div>
+    </div>`).join('');
+      ['chartTotal', 'chartTime', 'chartScore'].forEach(id => {
+        const c = document.getElementById(id); if (c && c._chart) c._chart.destroy();
+      });
+      function mkDonut(id, esV, solrV, lbl) {
+        const ctx = document.getElementById(id); if (!ctx) return;
+        const c = new Chart(ctx, { type: 'doughnut', data: { labels: ['Elasticsearch', 'Apache Solr'], datasets: [{ data: [esV, solrV], backgroundColor: ['rgba(49,130,206,0.8)', 'rgba(221,107,32,0.8)'], borderWidth: 2 }] }, options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, color: '#718096' } }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${lbl(ctx.raw)}` } } }, cutout: '60%' } });
+        ctx._chart = c;
+      }
+      mkDonut('chartTotal', es.total, solr.total, v => v.toLocaleString());
+      mkDonut('chartTime', es.time_ms, solr.time_ms, v => v + 'ms');
+      mkDonut('chartScore', es.top_score, solr.top_score, v => v);
+    }
+
+    // Delegated click handler for article links (avoids inline onclick quote issues)
+    document.addEventListener('click', function (e) {
+      const a = e.target.closest('.article-link');
+      if (!a) return;
+      e.preventDefault();
+      const title = a.getAttribute('data-title');
+      openArticle(title);
+    });
+
+    function openArticle(title) {
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalBody').innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary" role="status"></div> Loading...</div>';
+      document.getElementById('modalWikiLink').href = 'https://en.wikipedia.org/wiki/' + encodeURIComponent(title.replace(/ /g, '_'));
+      new bootstrap.Modal(document.getElementById('articleModal')).show();
+      fetch('/article?title=' + encodeURIComponent(title))
+        .then(r => r.json())
+        .then(d => { document.getElementById('modalBody').innerHTML = d.content || '<p>No content available.</p>'; })
+        .catch(() => { document.getElementById('modalBody').innerHTML = '<p class="text-danger">Could not load content.</p>'; });
+    }
+  </script>
+
+  <!-- ARTICLE MODAL -->
+  <div class="modal fade" id="articleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header" style="border-bottom:1px solid #e2e8f0">
+          <h5 class="modal-title" id="modalTitle" style="font-size:1.1rem;font-weight:700"></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="modalBody"
+          style="font-size:.93rem;line-height:1.8;color:#2d3748;white-space:pre-wrap"></div>
+        <div class="modal-footer" style="border-top:1px solid #e2e8f0">
+          <a id="modalWikiLink" href="#" target="_blank" class="btn btn-sm btn-outline-primary">Open on Wikipedia ↗</a>
+          <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,114 @@
+# =============================================================
+# docker-compose.yml
+# -------------------------------------------------------------
+# This file defines ALL the services we need for our project.
+# Docker Compose starts all services with a single command.
+#
+# WHY DOCKER?
+#   - Instead of manually installing Elasticsearch, Solr, etc.
+#     on your computer, Docker runs them in isolated containers.
+#   - Each container is like a mini virtual machine.
+#   - One command: "docker-compose up" starts everything!
+#
+# SERVICES IN THIS FILE:
+#   1. elasticsearch  → Search engine #1 (stores & searches articles)
+#   2. kibana         → Dashboard UI for Elasticsearch
+#   3. solr           → Search engine #2 (stores & searches articles)
+# =============================================================
+
+version: "3.8"
+
+services:
+
+  # -----------------------------------------------------------
+  # SERVICE 1: ELASTICSEARCH
+  # -----------------------------------------------------------
+  # Elasticsearch is a distributed search engine.
+  # We will index all Wikipedia articles here and search them.
+  # It runs on port 9200 (we will call it from Python scripts).
+  # -----------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: elasticsearch
+    environment:
+      # Single-node mode = no clustering, simpler setup
+      - discovery.type=single-node
+      # Disable security for local development (no password needed)
+      - xpack.security.enabled=false
+      # Allow Kibana to connect without SSL
+      - xpack.security.http.ssl.enabled=false
+      # Give Elasticsearch enough memory (512MB min, 1GB max)
+      - ES_JAVA_OPTS=-Xms512m -Xmx1g
+    ports:
+      # Map container port 9200 → your computer's port 9200
+      # So we can access it at http://localhost:9200
+      - "9200:9200"
+    volumes:
+      # Save Elasticsearch data so it persists after restart
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - pdc_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # -----------------------------------------------------------
+  # SERVICE 2: KIBANA
+  # -----------------------------------------------------------
+  # Kibana is a visual dashboard for Elasticsearch.
+  # You can search articles, create charts, and visualize data.
+  # It runs on port 5601 (open in browser: http://localhost:5601)
+  # -----------------------------------------------------------
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: kibana
+    environment:
+      # Tell Kibana where Elasticsearch is running
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - pdc_network
+
+  # -----------------------------------------------------------
+  # SERVICE 3: APACHE SOLR
+  # -----------------------------------------------------------
+  # Solr is another distributed search engine (like Elasticsearch).
+  # Both are built on Apache Lucene under the hood.
+  # Solr runs on port 8983 (open in browser: http://localhost:8983/solr)
+  # -----------------------------------------------------------
+  solr:
+    image: solr:9.4
+    container_name: solr
+    ports:
+      - "8983:8983"
+    volumes:
+      # Save Solr data so it persists after restart
+      - solr_data:/var/solr
+    networks:
+      - pdc_network
+    command:
+      # Start Solr in standalone (non-cloud) mode for simplicity
+      - solr-precreate
+      - wikipedia   # Automatically create a core named "wikipedia"
+
+# -----------------------------------------------------------
+# NETWORKS
+# All containers join "pdc_network" so they can talk to each other
+# -----------------------------------------------------------
+networks:
+  pdc_network:
+    driver: bridge
+
+# -----------------------------------------------------------
+# VOLUMES
+# Named volumes store data even after containers are stopped
+# -----------------------------------------------------------
+volumes:
+  es_data:
+  solr_data:
